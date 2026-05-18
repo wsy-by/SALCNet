@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import yaml
-from PIL import Image, ImageEnhance
+from PIL import Image
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -33,21 +33,6 @@ class VOCDataset(Dataset):
         mask = Image.open(self.mask_dir / f"{sample_id}.png")
         return image, mask
 
-    def _augment(self, image, mask):
-        if random.random() < 0.5:
-            image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
-        angle = random.uniform(-10.0, 10.0)
-        scale = random.uniform(0.8, 1.2)
-        width, height = image.size
-        new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
-        image = image.resize(new_size, Image.BILINEAR).rotate(angle, resample=Image.BILINEAR)
-        mask = mask.resize(new_size, Image.NEAREST).rotate(angle, resample=Image.NEAREST)
-        image = ImageEnhance.Brightness(image).enhance(random.uniform(0.7, 1.3))
-        image = ImageEnhance.Contrast(image).enhance(random.uniform(0.8, 1.2))
-        image = ImageEnhance.Color(image).enhance(random.uniform(0.8, 1.2))
-        return image, mask
-
     def _resize_crop(self, image, mask):
         image = image.resize(self.size, Image.BILINEAR)
         mask = mask.resize(self.size, Image.NEAREST)
@@ -55,8 +40,6 @@ class VOCDataset(Dataset):
 
     def __getitem__(self, index):
         image, mask = self._load_pair(self.ids[index])
-        if self.training:
-            image, mask = self._augment(image, mask)
         image, mask = self._resize_crop(image, mask)
         image = np.asarray(image, dtype=np.float32) / 255.0
         image = (image - np.array([0.485, 0.456, 0.406], dtype=np.float32)) / np.array([0.229, 0.224, 0.225], dtype=np.float32)
